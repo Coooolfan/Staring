@@ -1,16 +1,49 @@
-# 这是一个示例 Python 脚本。
+import time
 
-# 按 Shift+F10 执行或将其替换为您的代码。
-# 按 双击 Shift 在所有地方搜索类、文件、工具窗口、操作和设置。
+import cv2
 
+from VideoCapture import VideoCapture
+from src.ModelTracker import ModelTracker
+from utils import sysState
 
-def print_hi(name):
-    # 在下面的代码行中使用断点来调试脚本。
-    print(f'Hi, {name}')  # 按 Ctrl+F8 切换断点。
-
-
-# 按装订区域中的绿色按钮以运行脚本。
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    time.sleep(0.2)
+    tracked_Id = -1
+    tracker = ModelTracker()
+    cap = VideoCapture(0)
+    while (1):
+        if sysState.is_locked():
+            continue
+        _, frame = cap.read()
+        results = tracker.track(frame)
+        cv2.imshow("YOLOv8 Tracking", results.plot())
 
-# 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
+        boxes = results.boxes
+        # print("person:" + str(len(results)))
+
+        if len(boxes) == 1 and tracked_Id == -1 and boxes[0].is_track:
+            tracked_Id = int(boxes[0].id)
+            print("tracked_Id:" + str(tracked_Id))
+
+        left = True
+        if tracked_Id != -1 and len(boxes) > 0:
+            for box in boxes:
+                if box.is_track and int(box.id) == tracked_Id:
+                    left = False
+                    break
+        if left and tracked_Id != -1:
+            print("left")
+            tracked_Id = -1
+            sysState.lock()
+            cap.stop()
+
+
+        # key = input()
+        # Display the annotated frame
+
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+    cap.stop()
+    tracker.stop()
+    cv2.destroyAllWindows()
